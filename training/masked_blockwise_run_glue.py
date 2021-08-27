@@ -375,7 +375,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
             train_iterator.close()
             break
 
-    print('Best Result: ', best_accuracy)
+    # print('Best Result: ', best_accuracy)
 
     return global_step, tr_loss / global_step
 
