@@ -186,7 +186,7 @@ def main():
     parser.add_argument('--block_path')
     parser.add_argument(
         "--task_name",
-        default=None,
+        default="qqp",
         type=str,
         required=True,
         help="The name of the task to train selected in the list: " +
