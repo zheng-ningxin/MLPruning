@@ -29,10 +29,6 @@ from transformers import glue_output_modes as output_modes
 from transformers import glue_processors as processors
 
 def load_and_cache_examples(args, task, tokenizer, evaluate=False):
-    if args.local_rank not in [-1, 0] and not evaluate:
-        # Make sure only the first process in distributed training process the
-        # dataset, and the others will use the cache
-        torch.distributed.barrier()
 
     processor = processors[task]()
     output_mode = output_modes[task]
@@ -66,13 +62,8 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
             label_list=label_list,
             output_mode=output_mode,
         )
-        if args.local_rank in [-1, 0]:
-            torch.save(features, cached_features_file)
+        torch.save(features, cached_features_file)
 
-    if args.local_rank == 0 and not evaluate:
-        # Make sure only the first process in distributed training process the
-        # dataset, and the others will use the cache
-        torch.distributed.barrier()
 
     # Convert to Tensors and build dataset
     all_input_ids = torch.tensor(
@@ -107,7 +98,7 @@ def evaluate(args, model, tokenizer, prefix=""):
         eval_dataset = load_and_cache_examples(
             args, eval_task, tokenizer, evaluate=True)
 
-        if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
+        if not os.path.exists(eval_output_dir):
             os.makedirs(eval_output_dir)
 
         args.eval_batch_size = args.per_gpu_eval_batch_size * \
@@ -182,7 +173,7 @@ def evaluate(args, model, tokenizer, prefix=""):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--coarse_path')
+    parser.add_argument('--model_name_or_path')
     parser.add_argument('--block_path')
     parser.add_argument(
         "--task_name",
@@ -201,10 +192,11 @@ def main():
         help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
+    parser.add_argument('--max_seq_length', default=128)
     args = parser.parse_args()
-    tokenizer = BertTokenizer.from_pretrained(args.coarse_path)
-    config = MaskedBertConfig.from_pretrained(args.coarse_path)
-    model = MaskedBertForSequenceClassification.from_pretrained(args.coarse_path, config=config)
+    tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
+    config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
+    model = MaskedBertForSequenceClassification.from_pretrained(args.model_name_or_path, config=config)
     evaluate(args, model, tokenizer)
 
 if __name__ == '__main__':
