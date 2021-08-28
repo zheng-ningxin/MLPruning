@@ -173,26 +173,91 @@ def evaluate(args, model, tokenizer, prefix=""):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name_or_path')
-    parser.add_argument('--block_path')
+    # parser.add_argument('--model_name_or_path')
+    # parser.add_argument('--block_path')
+    # parser.add_argument(
+    #     "--task_name",
+    #     default="qqp",
+    #     type=str,
+    #     required=True,
+    #     help="The name of the task to train selected in the list: " +
+    #     ", ".join(
+    #         processors.keys()),
+    # )
+    # parser.add_argument(
+    #     "--output_dir",
+    #     default=None,
+    #     type=str,
+    #     required=True,
+    #     help="The output directory where the model predictions and checkpoints will be written.",
+    # )
+    # parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
+    # parser.add_argument('--max_seq_length', default=128)
     parser.add_argument(
-        "--task_name",
-        default="qqp",
-        type=str,
-        required=True,
-        help="The name of the task to train selected in the list: " +
-        ", ".join(
-            processors.keys()),
-    )
-    parser.add_argument(
-        "--output_dir",
+        "--model_name_or_path",
         default=None,
         type=str,
         required=True,
-        help="The output directory where the model predictions and checkpoints will be written.",
+        help="Path to pretrained model or model identifier from huggingface.co/models",
     )
-    parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
-    parser.add_argument('--max_seq_length', default=128)
+    # Other parameters
+    parser.add_argument(
+        "--config_name",
+        default="",
+        type=str,
+        help="Pretrained config name or path if not the same as model_name",
+    )
+    parser.add_argument(
+        "--max_seq_length",
+        default=128,
+        type=int,
+        help="The maximum total input sequence length after tokenization. Sequences longer "
+        "than this will be truncated, sequences shorter will be padded.",
+    )
+    parser.add_argument(
+        "--per_gpu_train_batch_size",
+        default=1,
+        type=int,
+        help="Batch size per GPU/CPU for training.",
+    )
+    parser.add_argument(
+        "--pruning_method",
+        default="topK",
+        type=str,
+        help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, sigmoied_threshold = Soft movement pruning).",
+    )
+    parser.add_argument(
+        "--head_pruning", action="store_true", help="Head Pruning or not",
+    )
+    parser.add_argument(
+        "--no_cuda",
+        action="store_true",
+        help="Avoid using CUDA when available")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="random seed for initialization")
+    parser.add_argument("--local_rank", type=int, default=-
+                        1, help="For distributed training: local_rank")
+
+    parser.add_argument(
+        "--block_rows",
+        type=int,
+        default=-1,
+        help="Number of rows in a block")
+    parser.add_argument(
+        "--block_cols",
+        type=int,
+        default=-1,
+        help="Number of cols in a block")
+    parser.add_argument(
+        "--block_path",
+        default=None,
+        type=str,
+        help="Path to pretrained block wise model",
+    )
+
     args = parser.parse_args()
     tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
     config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
