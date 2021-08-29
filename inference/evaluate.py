@@ -101,8 +101,6 @@ def evaluate(args, model, tokenizer, prefix=""):
         if not os.path.exists(eval_output_dir):
             os.makedirs(eval_output_dir)
 
-        args.eval_batch_size = args.per_gpu_eval_batch_size * \
-            max(1, args.n_gpu)
         # Note that DistributedSampler samples randomly
         eval_sampler = SequentialSampler(eval_dataset)
         eval_dataloader = DataLoader(
@@ -110,9 +108,6 @@ def evaluate(args, model, tokenizer, prefix=""):
             sampler=eval_sampler,
             batch_size=args.eval_batch_size)
 
-        # multi-gpu eval
-        if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
-            model = torch.nn.DataParallel(model)
 
         # Eval!
         # print(f"***** Running evaluation {prefix} *****")
@@ -175,24 +170,23 @@ def main():
     parser = argparse.ArgumentParser()
     # parser.add_argument('--model_name_or_path')
     # parser.add_argument('--block_path')
-    # parser.add_argument(
-    #     "--task_name",
-    #     default="qqp",
-    #     type=str,
-    #     required=True,
-    #     help="The name of the task to train selected in the list: " +
-    #     ", ".join(
-    #         processors.keys()),
-    # )
-    # parser.add_argument(
-    #     "--output_dir",
-    #     default=None,
-    #     type=str,
-    #     required=True,
-    #     help="The output directory where the model predictions and checkpoints will be written.",
-    # )
-    # parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
-    # parser.add_argument('--max_seq_length', default=128)
+    parser.add_argument(
+         "--task_name",
+         default="qqp",
+         type=str,
+         required=True,
+         help="The name of the task to train selected in the list: " +
+         ", ".join(
+             processors.keys()),
+    )
+    parser.add_argument(
+         "--output_dir",
+         default=None,
+         type=str,
+         required=True,
+         help="The output directory where the model predictions and checkpoints will be written.",
+    )
+    parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
     parser.add_argument(
         "--model_name_or_path",
         default=None,
@@ -257,12 +251,31 @@ def main():
         type=str,
         help="Path to pretrained block wise model",
     )
-
+    parser.add_argument(
+        "--overwrite_cache",
+        action="store_true",
+        help="Overwrite the cached training and evaluation sets",
+    )
+    parser.add_argument(
+        "--eval_batch_size",
+        default=32,
+        type=int,
+                                            help="Batch size per GPU/CPU for evaluation.",
+                                                )
+    parser.add_argument(
+                    "--model_type",
+                            default=None,
+                                    type=str,
+                                            required=True
+        )
     args = parser.parse_args()
+    args.device = torch.device('cuda')
+    args.output_mode = output_modes[args.task_name]
     tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
     config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
-    model = MaskedBertForSequenceClassification.from_pretrained(args.model_name_or_path, config=config)
-    evaluate(args, model, tokenizer)
+    model = MaskedBertForSequenceClassification.from_pretrained(args.model_name_or_path, config=config).to(args.device)
+    result = evaluate(args, model, tokenizer)
+    print(result)
 
 if __name__ == '__main__':
     main()
