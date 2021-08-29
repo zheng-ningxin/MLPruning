@@ -28,6 +28,7 @@ from transformers import glue_convert_examples_to_features as convert_examples_t
 from transformers import glue_output_modes as output_modes
 from transformers import glue_processors as processors
 
+
 def load_and_cache_examples(args, task, tokenizer, evaluate=False):
 
     processor = processors[task]()
@@ -64,7 +65,6 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         )
         torch.save(features, cached_features_file)
 
-
     # Convert to Tensors and build dataset
     all_input_ids = torch.tensor(
         [f.input_ids for f in features], dtype=torch.long)
@@ -85,6 +85,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         all_token_type_ids,
         all_labels)
     return dataset
+
 
 def evaluate(args, model, tokenizer, prefix=""):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
@@ -108,7 +109,6 @@ def evaluate(args, model, tokenizer, prefix=""):
             sampler=eval_sampler,
             batch_size=args.eval_batch_size)
 
-
         # Eval!
         # print(f"***** Running evaluation {prefix} *****")
         # print(f"  Num examples = {len(eval_dataset)}")
@@ -129,7 +129,8 @@ def evaluate(args, model, tokenizer, prefix=""):
                     "labels": batch[3]}
                 if args.model_type != "distilbert":
                     inputs["token_type_ids"] = (
-                        batch[2] if args.model_type in ["bert", "masked_bert", "xlnet", "albert"] else None
+                        batch[2] if args.model_type in [
+                            "bert", "masked_bert", "xlnet", "albert"] else None
                     )  # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
 
                 outputs = model(**inputs)
@@ -171,20 +172,20 @@ def main():
     # parser.add_argument('--model_name_or_path')
     # parser.add_argument('--block_path')
     parser.add_argument(
-         "--task_name",
-         default="qqp",
-         type=str,
-         required=True,
-         help="The name of the task to train selected in the list: " +
-         ", ".join(
+        "--task_name",
+        default="qqp",
+        type=str,
+        required=True,
+        help="The name of the task to train selected in the list: " +
+        ", ".join(
              processors.keys()),
     )
     parser.add_argument(
-         "--output_dir",
-         default=None,
-         type=str,
-         required=True,
-         help="The output directory where the model predictions and checkpoints will be written.",
+        "--output_dir",
+        default=None,
+        type=str,
+        required=True,
+        help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
     parser.add_argument(
@@ -260,22 +261,24 @@ def main():
         "--eval_batch_size",
         default=32,
         type=int,
-                                            help="Batch size per GPU/CPU for evaluation.",
-                                                )
+        help="Batch size per GPU/CPU for evaluation.",
+    )
     parser.add_argument(
-                    "--model_type",
-                            default=None,
-                                    type=str,
-                                            required=True
-        )
+        "--model_type",
+        default=None,
+        type=str,
+        required=True
+    )
     args = parser.parse_args()
     args.device = torch.device('cuda')
     args.output_mode = output_modes[args.task_name]
     tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
     config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
-    model = MaskedBertForSequenceClassification.from_pretrained(args.model_name_or_path, config=config).to(args.device)
+    model = MaskedBertForSequenceClassification.from_pretrained(
+        args.model_name_or_path, config=config).to(args.device)
     result = evaluate(args, model, tokenizer)
     print(result)
+
 
 if __name__ == '__main__':
     main()
