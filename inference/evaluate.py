@@ -8,12 +8,13 @@ import math
 
 import numpy as np
 import torch
+# from torch.functional import norm
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
-
+from nni.compression.pytorch.utils import get_module_by_name
 from emmental import MaskedBertConfig, MaskedBertForSequenceClassification
 from transformers import (
     WEIGHTS_NAME,
@@ -27,7 +28,7 @@ from transformers import glue_compute_metrics as compute_metrics
 from transformers import glue_convert_examples_to_features as convert_examples_to_features
 from transformers import glue_output_modes as output_modes
 from transformers import glue_processors as processors
-
+from emmental.modules.masked_nn import MaskedLinear
 
 def load_and_cache_examples(args, task, tokenizer, evaluate=False):
 
@@ -166,6 +167,24 @@ def evaluate(args, model, tokenizer, prefix=""):
 
     return results
 
+def load_weights_from_masked(bert, masked_bert):
+
+    for name, module in masked_bert.named_modules():
+        if isinstance(module, MaskedLinear):
+            import pdb; pdb.set_trace()
+            _, leaf_module = get_module_by_name(bert, name)
+            assert isinstance(leaf_module, torch.nn.Linear)
+            leaf_module.weight.data.copy_(module.weight.data)
+            hm, m = module.get_mask()
+            if m:
+                leaf_module.weight.data[:,m] = 0
+            if hm:
+                head_m = torch.zeros(leaf_module.weight.size[0])
+                head_size = head_m.size(0)/hm.size(0)
+                for i in range(head_m.size(0)):
+                    if head_m[i] > 0:
+                        head_m[i*head_size:(i+1)*head_size] = 1
+                leaf_module[head_m.to(torch.bool)] = 0
 
 def main():
     parser = argparse.ArgumentParser()
@@ -279,6 +298,9 @@ def main():
     result = evaluate(args, model, tokenizer)
     print(result)
 
+    norm_model = BertForSequenceClassification(config=config)
+    load_weights_from_masked(norm_model, model)
+    
 
 if __name__ == '__main__':
     main()
