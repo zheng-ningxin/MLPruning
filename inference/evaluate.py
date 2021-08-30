@@ -175,16 +175,37 @@ def load_weights_from_masked(bert, masked_bert):
             _, leaf_module = get_module_by_name(bert, name)
             assert isinstance(leaf_module, torch.nn.Linear)
             leaf_module.weight.data.copy_(module.weight.data)
-            hm, m = module.get_mask()
-            if m:
-                leaf_module.weight.data[:,m] = 0
-            if hm:
-                head_m = torch.zeros(leaf_module.weight.size[0])
-                head_size = head_m.size(0)/hm.size(0)
-                for i in range(head_m.size(0)):
-                    if head_m[i] > 0:
-                        head_m[i*head_size:(i+1)*head_size] = 1
-                leaf_module[head_m.to(torch.bool)] = 0
+            mask_head, mask = module.get_mask()
+
+
+
+            weight_shape = module.weight.size()
+            bias_shape = module.bias.size()
+            if mask_head is not None:
+                weight_thresholded = (
+                    module.weight.view(
+                        module.head_split, -1) * mask_head).view(weight_shape)
+                if module.bias_mask:
+                    bias_thresholded = (
+                        module.bias.view(
+                            module.head_split, -1) * mask_head).view(bias_shape)
+            else:
+                weight_thresholded = module.weight.data
+                bias_thresholded = module.bias.data
+            # Mask weights with computed mask
+            if module.mask is not None:
+                weight_thresholded = mask * weight_thresholded
+                if module.bias_mask:
+                    bias_thresholded = mask.view(
+                        module.bias.size()) * bias_thresholded
+                else:
+                    bias_thresholded = bias_thresholded
+            pass
+            with torch.no_grad():
+                leaf_module.weight.data.copy_(weight_thresholded.data)
+                if leaf_module.bias is not None:
+                    leaf_module.bias.data.copy_(bias_thresholded)
+
 
 def main():
     parser = argparse.ArgumentParser()
