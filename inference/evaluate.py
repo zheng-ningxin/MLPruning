@@ -171,7 +171,6 @@ def load_weights_from_masked(bert, masked_bert):
 
     for name, module in masked_bert.named_modules():
         if isinstance(module, MaskedLinear):
-            import pdb; pdb.set_trace()
             _, leaf_module = get_module_by_name(bert, name)
             assert isinstance(leaf_module, torch.nn.Linear)
             leaf_module.weight.data.copy_(module.weight.data)
@@ -193,7 +192,7 @@ def load_weights_from_masked(bert, masked_bert):
                 weight_thresholded = module.weight.data
                 bias_thresholded = module.bias.data
             # Mask weights with computed mask
-            if module.mask is not None:
+            if mask is not None:
                 weight_thresholded = mask * weight_thresholded
                 if module.bias_mask:
                     bias_thresholded = mask.view(
@@ -316,11 +315,13 @@ def main():
     config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
     model = MaskedBertForSequenceClassification.from_pretrained(
         args.model_name_or_path, config=config).to(args.device)
-    result = evaluate(args, model, tokenizer)
-    print(result)
+    #result = evaluate(args, model, tokenizer)
+    #print(result)
 
     norm_model = BertForSequenceClassification(config=config)
     load_weights_from_masked(norm_model, model)
+    result = evaluate(args, model, tokenizer)
+    print(result)
     
 
 if __name__ == '__main__':
