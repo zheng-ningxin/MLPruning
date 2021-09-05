@@ -2,10 +2,10 @@ export PYTHONUNBUFFERED=1
 
 threshold=0.1
 
-teacher_path=result/qqp_partial/1.0/checkpoint-110000/ 
+teacher_path=result/qqp_partial/coarse_0.3/checkpoint-220000/
 
-block_rows=16
-block_cols=16
+block_rows=32
+block_cols=32
 
 OUTPUT_PATH=result/qqp_full/${block_rows}_${block_cols}/${threshold}
 
