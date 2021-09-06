@@ -1,1 +1,1 @@
-python evaluate.py --model_name_or_path ../training/result/qqp_partial/0.5/checkpoint-132000/ --block_path ../training/result/qqp_full/16_16/0.3_v2/checkpoint-220000/ --output_dir ./tmp_re --task_name qqp --model_type masked_bert
+CUDA_VISIBLE_DEVICES=1 python evaluate.py --model_name_or_path ../training/result/qqp_partial/0.5/checkpoint-132000/ --block_path ../training/result/qqp_full/16_16/0.3_v2/checkpoint-220000/ --output_dir ./tmp_re --task_name qqp --model_type masked_bert

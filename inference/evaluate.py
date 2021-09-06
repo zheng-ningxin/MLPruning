@@ -2,6 +2,7 @@ import argparse
 import glob
 import json
 import logging
+
 import os
 import random
 import math
@@ -176,8 +177,6 @@ def load_weights_from_masked(bert, masked_bert):
             leaf_module.weight.data.copy_(module.weight.data)
             mask_head, mask = module.get_mask()
 
-
-
             weight_shape = module.weight.size()
             bias_shape = module.bias.size()
             if mask_head is not None:
@@ -322,6 +321,27 @@ def main():
     load_weights_from_masked(norm_model, model)
     result = evaluate(args, model, tokenizer)
     print(result)
+    import pdb; pdb.set_trace()
+    pass
+    # prune heads for the norm model
+    head_pruner_cfg ={}
+    n_layers = len(norm_model.bert.encoder.layer)
+    for layer_id in range(n_layers):
+        head_pruner_cfg[layer_id] = []
+        q_layer = norm_model.bert.encoder.layer[layer_id].attention.self.query
+        head_step = q_layer.weight.size(0) // 12
+        for i in range(12):
+            _start = i * head_step
+            _end = _start + head_step
+            if torch.sum(q_layer.weight.data[_start:_end]) < 1e-8:
+                head_pruner_cfg[layer_id].append(i)
+    norm_model.prune_heads(head_pruner_cfg)
+    norm_model = norm_model.to(args.device)
+    import pdb; pdb.set_trace()
+    print('Bert Head Pruning config', head_pruner_cfg)
+    new_result = evaluate(args, norm_model, tokenizer)
+    print(new_result)
+                
     
 
 if __name__ == '__main__':
