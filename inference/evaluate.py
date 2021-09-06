@@ -319,10 +319,9 @@ def main():
 
     norm_model = BertForSequenceClassification(config=config)
     load_weights_from_masked(norm_model, model)
-    result = evaluate(args, model, tokenizer)
-    print(result)
-    import pdb; pdb.set_trace()
-    pass
+    # result = evaluate(args, model, tokenizer)
+    # print(result)
+    # import pdb; pdb.set_trace()
     # prune heads for the norm model
     head_pruner_cfg ={}
     n_layers = len(norm_model.bert.encoder.layer)
@@ -333,16 +332,35 @@ def main():
         for i in range(12):
             _start = i * head_step
             _end = _start + head_step
-            if torch.sum(q_layer.weight.data[_start:_end]) < 1e-8:
+            if torch.sum(q_layer.weight.data[_start:_end]) == 0:
                 head_pruner_cfg[layer_id].append(i)
     norm_model.prune_heads(head_pruner_cfg)
     norm_model = norm_model.to(args.device)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     print('Bert Head Pruning config', head_pruner_cfg)
-    new_result = evaluate(args, norm_model, tokenizer)
-    print(new_result)
-                
-    
-
+    # new_result = evaluate(args, norm_model, tokenizer)
+    # print(new_result)
+    if args.block_path:
+        
+        model._make_structural_pruning([args.block_rows, args.block_cols])
+        model = model.to(torch.device('cpu'))
+        for module in model.modules():
+            if isinstance(module, MaskedLinear):
+                module.enable_block_pruning([args.block_rows, args.block_cols])
+        model.load_state_dict(
+            torch.load(f"{args.block_path}/pytorch_model.bin", map_location=args.device))
+        for name, module in model.named_modules():
+            if isinstance(module, MaskedLinear):
+                print(name)
+                module.make_block_wise_inference_pruning()  # block-sparse model
+        model = model.to(args.device)
+        # import pdb; pdb.set_trace()
+        
+        new_result = evaluate(args, model, tokenizer)
+        print('Masked Model after structural pruning', new_result)
+        for layer_id in range(n_layers):
+            remain_heads = model.bert.encoder.layer[layer_id].attention.self.query.weight.size(0)//64
+            head_pruner_cfg[layer_id] = list(range(remain_heads))
+            
 if __name__ == '__main__':
     main()
