@@ -372,11 +372,9 @@ def main():
         print('Masked Model after structural pruning', new_result)
 
 
-        for name, module in model.named_modules():
-            if isinstance(module, MaskedLinear):
-
-                module.runsparse = False
-                print(name, module.weight.size())
+        # for name, module in model.named_modules():
+        #     if isinstance(module, MaskedLinear):
+        #         print(name, module.weight.size())
   
         norm_model.prune_heads(head_pruner_cfg)
         norm_model = norm_model.to(args.device)
@@ -386,30 +384,32 @@ def main():
             _layer = norm_model.bert.encoder.layer[layer_id]
             _layer2 = model.bert.encoder.layer[layer_id]
             # recover the weight of attention
-            _layer.attention.self.query.weight.data.copy_(_layer2.attention.self.query.weight.data)
+            _layer.attention.self.query.weight.data.copy_(_layer2.attention.self.query.ori_weight.data)
             _layer.attention.self.query.bias.data.copy_(_layer2.attention.self.query.bias.data)
-            _layer.attention.self.key.weight.data.copy_(_layer2.attention.self.key.weight.data)
+            _layer.attention.self.key.weight.data.copy_(_layer2.attention.self.key.ori_weight.data)
             _layer.attention.self.key.bias.data.copy_(_layer2.attention.self.key.bias.data)
-            _layer.attention.self.value.weight.data.copy_(_layer2.attention.self.value.weight.data)
+            _layer.attention.self.value.weight.data.copy_(_layer2.attention.self.value.ori_weight.data)
             _layer.attention.self.value.bias.data.copy_(_layer2.attention.self.value.bias.data)
             attention_output_mask = _layer2.attention.output_mask # the attention output dimension is 768
             _layer.attention.output.dense.weight.data[:] = 0.0
             _layer.attention.output.dense.bias.data[:] = 0.0
-            _layer.attention.output.dense.weight.data[attention_output_mask] = _layer2.attention.self.output.dense.weight.data
-            _layer.attention.output.dense.bias.data[attention_output_mask] = _layer2.attention.self.output.dense.bias.data
+            _layer.attention.output.dense.weight.data[attention_output_mask] = _layer2.attention.output.dense.ori_weight.data.to(args.device)
+            _layer.attention.output.dense.bias.data[attention_output_mask] = _layer2.attention.output.dense.bias.data.to(args.device)
             # replace the intermidiate layer
-            intermediate_mask = _layer.intermediate_mask
+            intermediate_mask = _layer2.intermediate_mask
             _layer.intermediate.dense.weight.data[:] = 0
             _layer.intermediate.dense.bias.data[:] = 0
-            _layer.intermediate.dense.weight.data[intermediate_mask] = _layer2.intermediate.dense.weight.data
-            _layer.intermediate.dense.bias.data[intermediate_mask] = _layer2.intermediate.dense.bias.data
+            _layer.intermediate.dense.weight.data[intermediate_mask] = _layer2.intermediate.dense.ori_weight.data.to(args.device)
+            _layer.intermediate.dense.bias.data[intermediate_mask] = _layer2.intermediate.dense.bias.data.to(args.device)
             # copy the weights of the output layer
             output_mask = _layer2.output_mask
             _layer.output.dense.weight.data[:] = 0.0
             _layer.output.dense.bias.data[:] = 0.0
-            _layer.output.dense.weight.data[output_mask] = _layer2.output.dense.weight.data
-            _layer.output.dense.bias.data[output_mask] = _layer2.output.dense.bias.data
+            # import pdb; pdb.set_trace()
+            _layer.output.dense.weight.data[output_mask][:, intermediate_mask] = _layer2.output.dense.ori_weight.data.to(args.device)
+            _layer.output.dense.bias.data[output_mask] = _layer2.output.dense.bias.data.to(args.device)
+        norm_acc = evaluate(args, norm_model, tokenizer)
+        print('Accuracy of the normal model', norm_acc)
 
-            
 if __name__ == '__main__':
     main()

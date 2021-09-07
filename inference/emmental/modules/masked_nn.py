@@ -267,7 +267,7 @@ class MaskedLinear(nn.Linear):
             tmp_ori_weight = blockshaped(tmp_ori_weight, self.block_rows, self.block_cols)
             # import pdb; pdb.set_trace()
             tmp_ori_weight = tmp_ori_weight * self.get_block_wise_pruning()
-            self.ori_weight = unblockshaped(tmp_ori_weight, self.weight.size(0), self.weight.size(1))
+            self.ori_weight = unblockshaped(tmp_ori_weight, self.weight.size(0), self.weight.size(1)).to(self.weight.device)
             self.sparse_kernel = True
             self.weight = self.sparse_weight
         else:
