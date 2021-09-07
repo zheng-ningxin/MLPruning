@@ -320,6 +320,7 @@ class BertAttention(nn.Module):
         self.self.key.make_inference_pruning(blocksize)
         value_mask = self.self.value.make_inference_pruning(blocksize)
         num_head = (value_mask.sum() // 64).item()
+        print("Number of Head:", num_head)
         self.self.num_attention_heads = int(num_head)
         self.self.all_head_size = self.self.num_attention_heads * \
             self.self.attention_head_size
@@ -419,6 +420,7 @@ class BertLayer(nn.Module):
         # make self.intermediate and self.output to be structural prune
         intermediate_mask = self.intermediate.dense.make_inference_pruning(
             blocksize)  # we need this to do the residual connection
+        self.intermediate_mask = intermediate_mask
         output_mask = self.output.dense.make_inference_pruning(blocksize)
         self.output_mask = output_mask
         # we need to do col pruning for FC2

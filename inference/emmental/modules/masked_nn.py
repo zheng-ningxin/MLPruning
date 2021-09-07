@@ -259,11 +259,17 @@ class MaskedLinear(nn.Linear):
                 mask_block, block, "dds", trans_a=False, trans_b=False)
             tmp_weight = torch.transpose(self.weight, 0, 1).reshape(
                 (1, 1, self.weight.shape[1], self.weight.shape[0]))
+            
             self.sparse_weight = triton.testing.sparsify_tensor(
                 tmp_weight, mask_block, block)
             self.sparse_weight = nn.Parameter(self.sparse_weight)
-            self.weight = self.sparse_weight
+            tmp_ori_weight = self.weight.data
+            tmp_ori_weight = blockshaped(tmp_ori_weight, self.block_rows, self.block_cols)
+            # import pdb; pdb.set_trace()
+            tmp_ori_weight = tmp_ori_weight * self.get_block_wise_pruning()
+            self.ori_weight = unblockshaped(tmp_ori_weight, self.weight.size(0), self.weight.size(1))
             self.sparse_kernel = True
+            self.weight = self.sparse_weight
         else:
             self.sparse_kernel = False
             rows, cols = self.weight.shape
@@ -273,6 +279,7 @@ class MaskedLinear(nn.Linear):
                 self.block_cols)  # n-block x 32 x 32
             tmp_weight = tmp_weight * mask_block  # n-block x 1 x 1
             tmp_weight = unblockshaped(tmp_weight, rows, cols)  # d x d
+            self.ori_weight = tmp_weight
             if not real_param_count:
                 self.weight = nn.Parameter(tmp_weight)
 

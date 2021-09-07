@@ -325,42 +325,91 @@ def main():
     # prune heads for the norm model
     head_pruner_cfg ={}
     n_layers = len(norm_model.bert.encoder.layer)
-    for layer_id in range(n_layers):
-        head_pruner_cfg[layer_id] = []
-        q_layer = norm_model.bert.encoder.layer[layer_id].attention.self.query
-        head_step = q_layer.weight.size(0) // 12
-        for i in range(12):
-            _start = i * head_step
-            _end = _start + head_step
-            if torch.sum(q_layer.weight.data[_start:_end]) == 0:
-                head_pruner_cfg[layer_id].append(i)
-    norm_model.prune_heads(head_pruner_cfg)
-    norm_model = norm_model.to(args.device)
-    # import pdb; pdb.set_trace()
-    print('Bert Head Pruning config', head_pruner_cfg)
-    # new_result = evaluate(args, norm_model, tokenizer)
-    # print(new_result)
+
+    name2module = {}
+    name2module_norm = {}
+    for name, module in model.named_modules():
+        name2module[name] = module
+    for name, module in norm_model.named_modules():
+        name2module_norm[name] = module
+    for name in name2module:
+        if isinstance(name2module[name], MaskedLinear):
+            print(name)
+            print(name2module[name].weight.size())
+            print(name2module_norm[name].weight.size())
+
     if args.block_path:
-        
         model._make_structural_pruning([args.block_rows, args.block_cols])
+        # for name, module in model.named_modules():
+        #     if isinstance(module, MaskedLinear):
+        #         print(module.row_pruning)
+        #         module.runsparse = False
+        #         print(name, module.weight.size())
+        # new_result = evaluate(args, model.to(args.device), tokenizer)
+        # print("new_result!!", new_result)
+
+        for layer_id in range(n_layers):
+            w_size = model.bert.encoder.layer[layer_id].attention.self.query.weight.size()
+            head_pruner_cfg[layer_id] = list(range(12-w_size[0]//64))
         model = model.to(torch.device('cpu'))
         for module in model.modules():
             if isinstance(module, MaskedLinear):
                 module.enable_block_pruning([args.block_rows, args.block_cols])
+        # for layer_id in range(n_layers):
+        #     print('Query weight', model.bert.encoder.layer[layer_id].attention.self.query.weight.size())
+        #     print('Key weight', model.bert.encoder.layer[layer_id].attention.self.key.weight.size())
+        #     print('Value', model.bert.encoder.layer[layer_id].attention.self.value.weight.size())
         model.load_state_dict(
             torch.load(f"{args.block_path}/pytorch_model.bin", map_location=args.device))
         for name, module in model.named_modules():
             if isinstance(module, MaskedLinear):
-                print(name)
+                print(name, module.weight.size())
                 module.make_block_wise_inference_pruning()  # block-sparse model
         model = model.to(args.device)
-        # import pdb; pdb.set_trace()
+
         
         new_result = evaluate(args, model, tokenizer)
         print('Masked Model after structural pruning', new_result)
+
+
+        for name, module in model.named_modules():
+            if isinstance(module, MaskedLinear):
+
+                module.runsparse = False
+                print(name, module.weight.size())
+  
+        norm_model.prune_heads(head_pruner_cfg)
+        norm_model = norm_model.to(args.device)
+        # import pdb; pdb.set_trace()
         for layer_id in range(n_layers):
-            remain_heads = model.bert.encoder.layer[layer_id].attention.self.query.weight.size(0)//64
-            head_pruner_cfg[layer_id] = list(range(remain_heads))
+            print("Weight replacement of the layer", layer_id)
+            _layer = norm_model.bert.encoder.layer[layer_id]
+            _layer2 = model.bert.encoder.layer[layer_id]
+            # recover the weight of attention
+            _layer.attention.self.query.weight.data.copy_(_layer2.attention.self.query.weight.data)
+            _layer.attention.self.query.bias.data.copy_(_layer2.attention.self.query.bias.data)
+            _layer.attention.self.key.weight.data.copy_(_layer2.attention.self.key.weight.data)
+            _layer.attention.self.key.bias.data.copy_(_layer2.attention.self.key.bias.data)
+            _layer.attention.self.value.weight.data.copy_(_layer2.attention.self.value.weight.data)
+            _layer.attention.self.value.bias.data.copy_(_layer2.attention.self.value.bias.data)
+            attention_output_mask = _layer2.attention.output_mask # the attention output dimension is 768
+            _layer.attention.output.dense.weight.data[:] = 0.0
+            _layer.attention.output.dense.bias.data[:] = 0.0
+            _layer.attention.output.dense.weight.data[attention_output_mask] = _layer2.attention.self.output.dense.weight.data
+            _layer.attention.output.dense.bias.data[attention_output_mask] = _layer2.attention.self.output.dense.bias.data
+            # replace the intermidiate layer
+            intermediate_mask = _layer.intermediate_mask
+            _layer.intermediate.dense.weight.data[:] = 0
+            _layer.intermediate.dense.bias.data[:] = 0
+            _layer.intermediate.dense.weight.data[intermediate_mask] = _layer2.intermediate.dense.weight.data
+            _layer.intermediate.dense.bias.data[intermediate_mask] = _layer2.intermediate.dense.bias.data
+            # copy the weights of the output layer
+            output_mask = _layer2.output_mask
+            _layer.output.dense.weight.data[:] = 0.0
+            _layer.output.dense.bias.data[:] = 0.0
+            _layer.output.dense.weight.data[output_mask] = _layer2.output.dense.weight.data
+            _layer.output.dense.bias.data[output_mask] = _layer2.output.dense.bias.data
+
             
 if __name__ == '__main__':
     main()
