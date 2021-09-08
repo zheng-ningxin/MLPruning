@@ -270,6 +270,9 @@ class MaskedLinear(nn.Linear):
             self.ori_weight = unblockshaped(tmp_ori_weight, self.weight.size(0), self.weight.size(1)).to(self.weight.device)
             self.sparse_kernel = True
             self.weight = self.sparse_weight
+            
+            self.run_sparse = False
+            self.weight = nn.Parameter(self.ori_weight)
         else:
             self.sparse_kernel = False
             rows, cols = self.weight.shape
