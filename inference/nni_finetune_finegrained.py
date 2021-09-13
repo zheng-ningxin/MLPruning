@@ -274,7 +274,7 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=10):
                 outputs = model(**inputs)
                 # print(outputs)
 
-                loss, logits_stu, reps_stu, attentions_stu = outputs[0], outputs[1], outputs[2], outputs[3]
+                loss, logits_stu, reps_stu, attentions_stu = outputs[0], None, None, None
                 # import pdb; pdb.set_trace()
                 # Distillation loss
                 if teacher is not None:
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     output_mode = output_modes[task_name]
     tokenizer = BertTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
     config = BertConfig.from_pretrained('textattack/bert-base-uncased-QQP')
-    model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=norm_config)
+    model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=config)
 
     model = model.to(device)
     cfg_list = [{'op_types':['Linear'], 'sparsity':0.95}]
