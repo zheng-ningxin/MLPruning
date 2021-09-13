@@ -364,7 +364,7 @@ if __name__ == '__main__':
     output_mode = output_modes[task_name]
     tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
     config = MaskedBertConfig.from_pretrained(model_name_or_path)
-    model = BertForSequenceClassification(config=config)
+    model = BertForSequenceClassification.from_pretrained('')
     mask = torch.load(mask_path, map_location=device)
     weight_state_dict = torch.load(weight_path)
     # import pdb; pdb.set_trace()

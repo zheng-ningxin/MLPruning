@@ -826,15 +826,16 @@ def main():
     args.device = torch.device('cuda')
     args.output_mode = output_modes[args.task_name]
     tokenizer = BertTokenizer.from_pretrained(args.model_name_or_path)
-    config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
-    model = MaskedBertForSequenceClassification.from_pretrained(
-        args.model_name_or_path, config=config).to(args.device)
+    # config = MaskedBertConfig.from_pretrained(args.model_name_or_path)
+    #model = MaskedBertForSequenceClassification.from_pretrained(
+    #    args.model_name_or_path, config=config).to(args.device)
     #result = evaluate(args, model, tokenizer)
     #print(result)
-
-    norm_model = BertForSequenceClassification(config=config)
-    load_weights_from_masked(norm_model, model)
-    print(evaluate(args, norm_model.to(args.device), tokenizer))
+    norm_tokenizer = BertTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
+    norm_config = BertConfig.from_pretrained('textattack/bert-base-uncased-QQP')
+    norm_model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=norm_config)
+    # load_weights_from_masked(norm_model, model)
+    print(evaluate(args, norm_model.to(args.device), norm_tokenizer))
     torch.save(norm_model.state_dict(), 'pretrained_bert_qqp.bert')
 
 if __name__ == '__main__':
