@@ -639,7 +639,7 @@ def main():
         required=True,
         help="The output directory where the model predictions and checkpoints will be written.",
     )
-    parser.add_argument('--data_dir', default='../../data-bin/glue_data/QQP')
+    parser.add_argument('--data_dir', default='./QQP')
     parser.add_argument(
         "--model_name_or_path",
         default=None,
