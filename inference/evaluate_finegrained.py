@@ -834,8 +834,8 @@ def main():
 
     norm_model = BertForSequenceClassification(config=config)
     load_weights_from_masked(norm_model, model)
-    evaluate(args, norm_model, tokenizer)
-    torch.save('pretrained_bert_qqp.bert')
+    print(evaluate(args, norm_model.to(args.device), tokenizer))
+    torch.save(norm_model.state_dict(), 'pretrained_bert_qqp.bert')
 
 if __name__ == '__main__':
     main()
