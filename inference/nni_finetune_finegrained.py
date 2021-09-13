@@ -362,13 +362,9 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=10):
 if __name__ == '__main__':
         
     output_mode = output_modes[task_name]
-    tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
-    config = MaskedBertConfig.from_pretrained(model_name_or_path)
-    model = BertForSequenceClassification.from_pretrained('')
-    mask = torch.load(mask_path, map_location=device)
-    weight_state_dict = torch.load(weight_path)
-    # import pdb; pdb.set_trace()
-    model.load_state_dict(weight_state_dict)
+    tokenizer = BertTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
+    config = BertConfig.from_pretrained('textattack/bert-base-uncased-QQP')
+    model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=norm_config)
 
     model = model.to(device)
     cfg_list = [{'op_types':['Linear'], 'sparsity':0.95}]
