@@ -2,7 +2,7 @@ import argparse
 import glob
 import json
 import logging
-
+import time
 import os
 import random
 import math
@@ -36,7 +36,7 @@ from nni.algorithms.compression.pytorch.pruning import L1FilterPruner, LevelPrun
 from nni.algorithms.compression.pytorch.pruning.weight_masker import WeightMasker
 from nni.algorithms.compression.pytorch.pruning.dependency_aware_pruner import DependencyAwarePruner
  
-def measure_time_pytorch(model, dummy_input, runtimes=200):
+def measure_time(model, dummy_input, runtimes=200):
     times = []
     with torch.no_grad():
         for runtime in range(runtimes):
@@ -51,10 +51,11 @@ def measure_time_pytorch(model, dummy_input, runtimes=200):
     std = np.std(times[_drop:-1*_drop])
     return mean*1000, std*1000
 
+device = torch.device('cuda')
 config = torch.load('Coarse_bert_config')
 dummy_input = torch.load('dummy_input.pth')
 
-data = (dummy_input['input_ids'], dummy_input['attention_mask'], dummy_input['token_type_ids'])
-norm_model = BertForSequenceClassification(config=config)
+data = (dummy_input['input_ids'].to(device), dummy_input['attention_mask'].to(device), dummy_input['token_type_ids'].to(device))
+norm_model = BertForSequenceClassification(config=config).to(device)
 jit_model = torch.jit.trace(norm_model, data)
 print(measure_time(jit_model, data))
