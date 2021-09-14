@@ -35,7 +35,7 @@ from nni.compression.pytorch import ModelSpeedup, apply_compression_results
 from nni.algorithms.compression.pytorch.pruning import L1FilterPruner, LevelPruner
 from nni.algorithms.compression.pytorch.pruning.weight_masker import WeightMasker
 from nni.algorithms.compression.pytorch.pruning.dependency_aware_pruner import DependencyAwarePruner
- 
+
 
 head_pruner_cfg = torch.load('head_prune_cfg')
 task_name = "qqp"
@@ -173,22 +173,19 @@ def evaluate(model, tokenizer, prefix=""):
             eval_output_dir, prefix, "eval_results.txt")
 
     return results
-
+from nni.compression.pytorch.quantization_speedup import ModelSpeedupTensorRT
 from ModelVisual2 import ModelVisual
 if __name__ == '__main__':
-    model_name_or_path = '../training/result/qqp_partial/coarse_0.3/checkpoint-220000/'
+    # model_name_or_path = '../training/result/qqp_partial/coarse_0.3/checkpoint-220000/'
     onnx_dir = 'bert_coarse_onnx'
     tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
-    config = MaskedBertConfig.from_pretrained(model_name_or_path)
-    # import pdb; pdb.set_trace()
+    config = torch.load('Coarse_bert_config')
     norm_model = BertForSequenceClassification(config=config)
     dummy_input = torch.load('dummy_input.pth')
-    # import pdb; pdb.set_trace()
-    # mv = ModelVisual(norm_model.bert.encoder, torch.rand(32, 128, 768))
-    # mv.visualize('./bert_encoder')
-    # exit()
+
     data = (dummy_input['input_ids'], dummy_input['attention_mask'], dummy_input['token_type_ids'])
-    torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
+    engine = ModelSpeedupTensorRT(model, input_shape, config=config, calib_data_loader=train_loader, batchsize=batch_size)
+    engine.compress()
     # exit()
     # norm_model = BertForSequenceClassification()
     head_cfg = torch.load('head_prune_cfg')
