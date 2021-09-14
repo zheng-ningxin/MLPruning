@@ -44,7 +44,7 @@ model_name_or_path = '../training/result/qqp_partial/1.0/checkpoint-220000/'
 data_dir = './QQP'
 max_seq_length= 128
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-n_epochs = 40
+n_epochs = 50
 def load_and_cache_examples( task, tokenizer, evaluate=False):
     
     processor = processors[task]()
@@ -252,6 +252,7 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=n_epoc
     # Added here for reproducibility
 
     for _ in range(num_train_epochs):
+        print('Learning Rate:', scheduler.get_last_lr())
         epoch_iterator = tqdm(train_dataloader, desc="Iteration")
         for step, batch in enumerate(epoch_iterator):
 
