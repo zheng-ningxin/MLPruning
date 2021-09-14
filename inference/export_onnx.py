@@ -197,6 +197,7 @@ if __name__ == '__main__':
     # print(evaluate(norm_model, tokenizer))
     ms = ModelSpeedup(norm_model.bert.encoder, torch.rand(32, 128, 768), 'nni_encoder_mask.pth')
     new_mask = ms.speedup_model()
+    # note transformers=3.5.0 torch=1.7.0
     # note comment the replace part in ModelSpeedup
     import pdb; pdb.set_trace()
     os.makedirs(onnx_dir, exist_ok=True)
