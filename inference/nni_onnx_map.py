@@ -199,7 +199,7 @@ def torch_to_onnx(model, config, model_path, input_names=["actual_input_1"], out
     # dummy_input
 
     model.to('cpu')
-    torch.onnx.export(model, dummy_input, model_path, verbose=False, input_names=input_names, output_names=output_names, export_params=True, opset_version=10)
+    torch.onnx.export(model, dummy_input, model_path, opset_version=10)
 
     # Load onnx model
     model_onnx = onnx.load(model_path)
