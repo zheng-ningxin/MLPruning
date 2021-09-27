@@ -35,7 +35,7 @@ from nni.compression.pytorch import ModelSpeedup, apply_compression_results
 from nni.algorithms.compression.pytorch.pruning import L1FilterPruner, LevelPruner
 from nni.algorithms.compression.pytorch.pruning.weight_masker import WeightMasker
 from nni.algorithms.compression.pytorch.pruning.dependency_aware_pruner import DependencyAwarePruner
- 
+from shape_hook import ShapeHook 
 
 head_pruner_cfg = torch.load('head_prune_cfg')
 task_name = "qqp"
@@ -188,12 +188,15 @@ if __name__ == '__main__':
     # mv.visualize('./bert_encoder')
     # exit()
     data = (dummy_input['input_ids'], dummy_input['attention_mask'], dummy_input['token_type_ids'])
-    torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
+    #torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
     # exit()
     # norm_model = BertForSequenceClassification()
     head_cfg = torch.load('head_prune_cfg')
     norm_model.prune_heads(head_cfg)
     norm_model.load_state_dict(torch.load('nni_weight.pth', map_location=device))
+    sh = ShapeHook(norm_model, data)
+    sh.export('./bert_coarse_pruned_shape.json')
+    exit(-1)
     # print(evaluate(norm_model, tokenizer))
     ms = ModelSpeedup(norm_model.bert.encoder, torch.rand(32, 128, 768), 'nni_encoder_mask.pth')
     new_mask = ms.speedup_model()
