@@ -366,7 +366,7 @@ if __name__ == '__main__':
     tokenizer = BertTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
     config = BertConfig.from_pretrained('textattack/bert-base-uncased-QQP')
     model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=config)
-
+    import pdb; pdb.set_trace()
     model = model.to(device)
     cfg_list = [{'op_types':['Linear'], 'sparsity':0.95}]
     pruner = LevelPruner(model, cfg_list)
