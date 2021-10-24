@@ -36,6 +36,7 @@ import sys
 import os
 from nni.algorithms.compression.pytorch.pruning import LevelPruner
 from nni_finetune import *
+from shape_hook import ShapeHook
 
 
 device = torch.device('cuda')
@@ -43,8 +44,17 @@ config = torch.load('Coarse_bert_config')
 dummy_input = torch.load('dummy_input.pth')
 data = (dummy_input['input_ids'].to(device), dummy_input['attention_mask'].to(device), dummy_input['token_type_ids'].to(device))
 norm_model = BertForSequenceClassification(config=config).to(device)
+
+# sh = ShapeHook(norm_model, data)
+# sh.export('bert_ori_shape.json')
+# exit()
+
 head_prune_cfg = torch.load('head_prune_cfg')
 norm_model.prune_heads(head_pruner_cfg)
+# sh = ShapeHook(norm_model, data)
+# sh.export('bert_coarse_shape.json')
+# exit()
+
 norm_model.load_state_dict(torch.load('/data/znx/SpargenCks/bert_coarse_cks/nni_weight.pth') )
 task_name = "qqp"
 token = BertTokenizer.from_pretrained('/data/znx/SpargenCks/bert_coarse_cks/token_pretrain/checkpoint-220000')
