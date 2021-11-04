@@ -163,14 +163,15 @@ def evaluate(model, tokenizer, prefix=""):
         probs = softmax(preds, axis=-1)
         entropy = np.exp((-probs * np.log(probs)).sum(axis=-1).mean())
         preds = np.argmax(preds, axis=1)
-      
-        result = compute_metrics(eval_task, preds, out_label_ids)
-        results.update(result)
-        if entropy is not None:
-            result["eval_avg_entropy"] = entropy
+        # import pdb; pdb.set_trace()
+        # result = compute_metrics(eval_task, preds, out_label_ids)
+        # results.update(result)
+        results[eval_task] = (preds == out_label_ids).mean()
+        # if entropy is not None:
+        #     result["eval_avg_entropy"] = entropy
 
-        output_eval_file = os.path.join(
-            eval_output_dir, prefix, "eval_results.txt")
+        # output_eval_file = os.path.join(
+        #     eval_output_dir, prefix, "eval_results.txt")
 
     return results
 

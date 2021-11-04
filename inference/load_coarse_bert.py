@@ -2,7 +2,7 @@ import argparse
 import glob
 import json
 import logging
-import time
+
 import os
 import random
 import math
@@ -30,32 +30,34 @@ from transformers import glue_convert_examples_to_features as convert_examples_t
 from transformers import glue_output_modes as output_modes
 from transformers import glue_processors as processors
 from emmental.modules.masked_nn import MaskedLinear
+import nni
+import torch
+import sys
+import os
+from nni.algorithms.compression.pytorch.pruning import LevelPruner
+from nni_finetune import *
+from shape_hook import ShapeHook
 
-from nni.compression.pytorch import ModelSpeedup, apply_compression_results
-from nni.algorithms.compression.pytorch.pruning import L1FilterPruner, LevelPruner
-from nni.algorithms.compression.pytorch.pruning.weight_masker import WeightMasker
-from nni.algorithms.compression.pytorch.pruning.dependency_aware_pruner import DependencyAwarePruner
- 
-def measure_time(model, dummy_input, runtimes=200):
-    times = []
-    with torch.no_grad():
-        for runtime in range(runtimes):
-            torch.cuda.synchronize()
-            start = time.time()
-            out=model(*dummy_input)
-            torch.cuda.synchronize()
-            end = time.time()
-            times.append(end-start)
-    _drop = int(runtimes * 0.1)
-    mean = np.mean(times[_drop:-1*_drop])
-    std = np.std(times[_drop:-1*_drop])
-    return mean*1000, std*1000
 
 device = torch.device('cuda')
 config = torch.load('Coarse_bert_config')
 dummy_input = torch.load('dummy_input.pth')
-head_cfg = torch.load('head_prune_cfg')
 data = (dummy_input['input_ids'].to(device), dummy_input['attention_mask'].to(device), dummy_input['token_type_ids'].to(device))
 norm_model = BertForSequenceClassification(config=config).to(device)
-jit_model = torch.jit.trace(norm_model, data)
-print(measure_time(jit_model, data))
+
+# sh = ShapeHook(norm_model, data)
+# sh.export('bert_ori_shape.json')
+# exit()
+
+head_prune_cfg = torch.load('head_prune_cfg')
+norm_model.prune_heads(head_pruner_cfg)
+# sh = ShapeHook(norm_model, data)
+# sh.export('bert_coarse_shape.json')
+# exit()
+
+norm_model.load_state_dict(torch.load('/data/znx/SpargenCks/bert_coarse_cks/nni_weight.pth') )
+task_name = "qqp"
+token = BertTokenizer.from_pretrained('/data/znx/SpargenCks/bert_coarse_cks/token_pretrain/checkpoint-220000')
+acc = evaluate(norm_model, token)
+
+import pdb; pdb.set_trace()

@@ -35,7 +35,7 @@ from nni.compression.pytorch import ModelSpeedup, apply_compression_results
 from nni.algorithms.compression.pytorch.pruning import L1FilterPruner, LevelPruner
 from nni.algorithms.compression.pytorch.pruning.weight_masker import WeightMasker
 from nni.algorithms.compression.pytorch.pruning.dependency_aware_pruner import DependencyAwarePruner
-from shape_hook import ShapeHook 
+ 
 
 head_pruner_cfg = torch.load('head_prune_cfg')
 task_name = "qqp"
@@ -175,6 +175,26 @@ def evaluate(model, tokenizer, prefix=""):
     return results
 
 from ModelVisual2 import ModelVisual
+def copy_tensor(t1, t2):
+    shape_list = list(t1.size())
+    index = []
+    for _size in shape_list:
+        index.append(slice(0, _size))
+    t1.data = t2.data[index]
+
+def inherit_weight(model, ori_model):
+    with torch.no_grad():
+        for name, module in model.named_modules():
+            if hasattr(module, 'weight') and module.weight is not None:
+                print(type(module))
+                # if isinstance(module, (torch.nn.LayerNorm, torch.nn.GroupNorm)):
+                #     import pdb; pdb.set_trace()
+                _, ori_module = get_module_by_name(ori_model, name)
+                copy_tensor(module.weight, ori_module.weight)
+                # import pdb; pdb.set_trace()
+                if hasattr(module, 'bias') and module.bias is not None:
+                    copy_tensor(module.bias, ori_module.bias)
+
 if __name__ == '__main__':
     model_name_or_path = '../training/result/qqp_partial/coarse_0.3/checkpoint-220000/'
     onnx_dir = 'bert_coarse_onnx'
@@ -188,24 +208,21 @@ if __name__ == '__main__':
     # mv.visualize('./bert_encoder')
     # exit()
     data = (dummy_input['input_ids'], dummy_input['attention_mask'], dummy_input['token_type_ids'])
-    #torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
+    # torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
     # exit()
     # norm_model = BertForSequenceClassification()
     head_cfg = torch.load('head_prune_cfg')
     norm_model.prune_heads(head_cfg)
     norm_model.load_state_dict(torch.load('nni_weight.pth', map_location=device))
-    # sh = ShapeHook(norm_model, data)
-    # sh.export('./bert_coarse_pruned_shape.json')
-    # from SparGen.Common.Utils import *
-    # export_tesa(norm_model, data, './bert_coarse_onnx_with_tesa', torch.load('nni_mask.pth'))
-    # exit(-1)
     # print(evaluate(norm_model, tokenizer))
-    tmp_encoder = copy.deepcopy(norm_model.bert.encoder)
-    ms = ModelSpeedup(tmp_encoder, torch.rand(32, 128, 768), 'nni_encoder_mask.pth')
-    new_mask = ms.speedup_model()
-    # note transformers=3.5.0 torch=1.7.0
-    # note comment the replace part in ModelSpeedup
+    new_model = BertForSequenceClassification(config=config)
+    for name, module in new_model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            module.weight.data[:] = 0
+    inherit_weight(new_model, norm_model)
     import pdb; pdb.set_trace()
-    os.makedirs(onnx_dir, exist_ok=True)
-    torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_coarse.onnx'), opset_version=10)
-    torch.save(new_mask, os.path.join(onnx_dir, 'mask'))
+    for name, module in new_model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            print(name, ' sparsity: ', torch.sum(module.weight.data==0)/module.weight.numel())
+    import pdb; pdb.set_trace()
+    torch.onnx.export(new_model, data, 'bert_coarse_sota_kernel.onnx', opset_version=10)

@@ -122,9 +122,7 @@ def evaluate(model, tokenizer, prefix=""):
             batch_size=32)
 
         # Eval!
-        # print(f"***** Running evaluation {prefix} *****")
-        # print(f"  Num examples = {len(eval_dataset)}")
-        # print(f"  Batch size = {args.eval_batch_size}")
+
         eval_loss = 0.0
         nb_eval_steps = 0
         preds = None
@@ -176,36 +174,23 @@ def evaluate(model, tokenizer, prefix=""):
 
 from ModelVisual2 import ModelVisual
 if __name__ == '__main__':
-    model_name_or_path = '../training/result/qqp_partial/coarse_0.3/checkpoint-220000/'
-    onnx_dir = 'bert_coarse_onnx'
-    tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
-    config = MaskedBertConfig.from_pretrained(model_name_or_path)
-    # import pdb; pdb.set_trace()
-    norm_model = BertForSequenceClassification(config=config)
+    prefix = 'bert_finegrained_0.95_onnx'
+    os.makedirs('bert_finegrained_0.95_onnx', exist_ok=True)
+    output_mode = output_modes[task_name]
+    tokenizer = BertTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
+    config = BertConfig.from_pretrained('textattack/bert-base-uncased-QQP')
+    model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=config)
     dummy_input = torch.load('dummy_input.pth')
-    # import pdb; pdb.set_trace()
-    # mv = ModelVisual(norm_model.bert.encoder, torch.rand(32, 128, 768))
-    # mv.visualize('./bert_encoder')
-    # exit()
     data = (dummy_input['input_ids'], dummy_input['attention_mask'], dummy_input['token_type_ids'])
-    #torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
-    # exit()
-    # norm_model = BertForSequenceClassification()
-    head_cfg = torch.load('head_prune_cfg')
-    norm_model.prune_heads(head_cfg)
-    norm_model.load_state_dict(torch.load('nni_weight.pth', map_location=device))
-    # sh = ShapeHook(norm_model, data)
-    # sh.export('./bert_coarse_pruned_shape.json')
-    # from SparGen.Common.Utils import *
-    # export_tesa(norm_model, data, './bert_coarse_onnx_with_tesa', torch.load('nni_mask.pth'))
-    # exit(-1)
-    # print(evaluate(norm_model, tokenizer))
-    tmp_encoder = copy.deepcopy(norm_model.bert.encoder)
-    ms = ModelSpeedup(tmp_encoder, torch.rand(32, 128, 768), 'nni_encoder_mask.pth')
-    new_mask = ms.speedup_model()
-    # note transformers=3.5.0 torch=1.7.0
-    # note comment the replace part in ModelSpeedup
+    state_dict = torch.load('./bert_finegrained_0.9_ck/bert_finegrained_0.95_nomask.pth')
+    model.load_state_dict(state_dict)
+    fine_grained_mask = {}
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            w_mask = torch.abs(module.weight.data)>0
+            b_mask = torch.abs(module.bias.data)>0
+            fine_grained_mask[name] = {'weight':w_mask, 'bias':b_mask}
+            print(name, ' Sparsity ratio:', torch.sum(w_mask)/w_mask.numel())
+    
     import pdb; pdb.set_trace()
-    os.makedirs(onnx_dir, exist_ok=True)
-    torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_coarse.onnx'), opset_version=10)
-    torch.save(new_mask, os.path.join(onnx_dir, 'mask'))
+    torch.onnx.export(model, data, os.path.join(prefix, 'bert_finegrained.onnx'), opset_version=10)
