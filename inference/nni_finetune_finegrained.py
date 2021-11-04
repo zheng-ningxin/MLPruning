@@ -46,7 +46,7 @@ max_seq_length= 128
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 n_epochs = 50
 def load_and_cache_examples( task, tokenizer, evaluate=False):
-    
+
     processor = processors[task]()
     output_mode = output_modes[task]
     # Load data features from cache or dataset file
@@ -139,8 +139,8 @@ def evaluate(model, tokenizer, prefix=""):
                     "input_ids": batch[0],
                     "attention_mask": batch[1],
                     "labels": batch[3]}
-                
-                inputs["token_type_ids"] = batch[2] 
+
+                inputs["token_type_ids"] = batch[2]
                      # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
 
                 outputs = model(**inputs)
@@ -157,13 +157,13 @@ def evaluate(model, tokenizer, prefix=""):
                     out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
         eval_loss = eval_loss / nb_eval_steps
-        
+
         from scipy.special import softmax
 
         probs = softmax(preds, axis=-1)
         entropy = np.exp((-probs * np.log(probs)).sum(axis=-1).mean())
         preds = np.argmax(preds, axis=1)
-      
+
         result = compute_metrics(eval_task, preds, out_label_ids)
         results.update(result)
         if entropy is not None:
@@ -177,7 +177,7 @@ def evaluate(model, tokenizer, prefix=""):
 def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=n_epochs):
     """ Train the model """
     train_sampler = RandomSampler(
-        train_dataset) 
+        train_dataset)
     train_dataloader = DataLoader(
         train_dataset,
         sampler=train_sampler,
@@ -268,7 +268,7 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=n_epoc
                 "input_ids": batch[0],
                 "attention_mask": batch[1],
                 "labels": batch[3]}
-            
+
             inputs["token_type_ids"] = batch[2] # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
 
             with torch.cuda.amp.autocast(enabled=False):
@@ -337,7 +337,7 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=n_epoc
 
 
 
-         
+
             loss.backward()
 
             tr_loss += loss.item()
@@ -345,7 +345,7 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=n_epoc
                 torch.nn.utils.clip_grad_norm_(
                     model.parameters(), max_grad_norm)
 
-       
+
                 optimizer.step()
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
@@ -354,19 +354,19 @@ def train(train_dataset, model, tokenizer, teacher=None, num_train_epochs=n_epoc
 
 
         results = evaluate(model, tokenizer)
-        print("Evaluate Accuracy", results)    
-                  
+        print("Evaluate Accuracy", results)
+
 
     return global_step, tr_loss / global_step
 
 
 if __name__ == '__main__':
-        
+
     output_mode = output_modes[task_name]
     tokenizer = BertTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
     config = BertConfig.from_pretrained('textattack/bert-base-uncased-QQP')
     model = BertForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP', config=config)
-
+    import pdb; pdb.set_trace()
     model = model.to(device)
     cfg_list = [{'op_types':['Linear'], 'sparsity':0.95}]
     pruner = LevelPruner(model, cfg_list)

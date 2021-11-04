@@ -6,7 +6,7 @@ import logging
 import os
 import random
 import math
-
+import copy
 import numpy as np
 import torch
 # from torch.functional import norm
@@ -188,18 +188,49 @@ if __name__ == '__main__':
     # mv.visualize('./bert_encoder')
     # exit()
     data = (dummy_input['input_ids'], dummy_input['attention_mask'], dummy_input['token_type_ids'])
-    torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
+    # torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_ori.onnx'), opset_version=10)
     # exit()
     # norm_model = BertForSequenceClassification()
     head_cfg = torch.load('head_prune_cfg')
     norm_model.prune_heads(head_cfg)
     norm_model.load_state_dict(torch.load('nni_weight.pth', map_location=device))
     # print(evaluate(norm_model, tokenizer))
-    ms = ModelSpeedup(norm_model.bert.encoder, torch.rand(32, 128, 768), 'nni_encoder_mask.pth')
-    new_mask = ms.speedup_model()
-    # note transformers=3.5.0 torch=1.7.0
-    # note comment the replace part in ModelSpeedup
-    import pdb; pdb.set_trace()
-    os.makedirs(onnx_dir, exist_ok=True)
-    torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_coarse.onnx'), opset_version=10)
-    torch.save(new_mask, os.path.join(onnx_dir, 'mask'))
+    export_block = False
+    if export_block:
+        # get the propagated mask
+        # ms = ModelSpeedup(norm_model.bert.encoder, torch.rand(32, 128, 768), 'nni_encoder_mask.pth')
+        # new_mask = ms.speedup_model()
+
+        # note transformers=3.5.0 torch=1.7.0
+        # note comment the replace part in ModelSpeedup
+        import pdb; pdb.set_trace()
+        os.makedirs(onnx_dir, exist_ok=True)
+        torch.onnx.export(norm_model, data, os.path.join(onnx_dir, 'bert_coarse.onnx'), opset_version=10)
+        torch.save(new_mask, os.path.join(onnx_dir, 'mask'))
+    else:
+        # we convert mask to pure coarse-grained mask
+        tmp_encoder = copy.deepcopy(norm_model.bert.encoder)
+        tmp_mask = torch.load('nni_encoder_mask.pth')
+        for name in tmp_mask:
+            if tmp_mask[name]['weight'].size(0) == 64 and 'self' in name:
+                # cannot prune more on the remained one head
+                tmp_mask[name]['weight'][:] = 1
+                tmp_mask[name]['bias'][:] = 1
+        torch.save(tmp_mask, 'tmp_mask.pth')
+        ms = ModelSpeedup(tmp_encoder, torch.rand(32, 128, 768), 'tmp_mask.pth')
+        import pdb; pdb.set_trace()
+        ms.speedup_model()
+        for name, module in tmp_encoder:
+            if isinstance(module, torch.nn.Linear):
+                father_m, leaf_m = get_module_by_name(norm_model, name)
+                _name =  name.split('.')[-1]
+                setattr(father_m, _name, module)
+
+            elif hasattr(module, 'num_attention_heads'):
+                father_m, leaf_m = get_module_by_name(norm_model, name)
+                
+                leaf_m.num_attention_heads = leaf_m.query.weight.size(0)//64
+                leaf_m.all_head_size = leaf_m.attention_head_size * 1
+        import pdb; pdb.set_trace()
+        norm_model(dummy_input)
+        import pdb; pdb.set_trace()
