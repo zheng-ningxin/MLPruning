@@ -58,6 +58,6 @@ norm_model.prune_heads(head_pruner_cfg)
 norm_model.load_state_dict(torch.load('/data/znx/SpargenCks/bert_coarse_cks/nni_weight.pth') )
 task_name = "qqp"
 token = BertTokenizer.from_pretrained('/data/znx/SpargenCks/bert_coarse_cks/token_pretrain/checkpoint-220000')
-acc = evaluate(norm_model, token)
+# acc = evaluate(norm_model, token)
 
-import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()

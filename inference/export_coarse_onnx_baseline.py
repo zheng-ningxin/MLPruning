@@ -226,3 +226,10 @@ if __name__ == '__main__':
             print(name, ' sparsity: ', torch.sum(module.weight.data==0)/module.weight.numel())
     import pdb; pdb.set_trace()
     torch.onnx.export(new_model, data, 'bert_coarse_sota_kernel.onnx', opset_version=10)
+    mask = {}
+    for name, module in new_model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            mask[name] = {}
+            mask[name]['weight'] = module.weight.data == 0
+    from SparGen.Common.Utils import  export_tesa
+    export_tesa(new_model, data, 'bert_coarse_sota_onnx_with_tesa', mask)
