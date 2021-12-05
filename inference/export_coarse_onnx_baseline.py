@@ -220,16 +220,17 @@ if __name__ == '__main__':
         if isinstance(module, torch.nn.Linear):
             module.weight.data[:] = 0
     inherit_weight(new_model, norm_model)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     for name, module in new_model.named_modules():
         if isinstance(module, torch.nn.Linear):
             print(name, ' sparsity: ', torch.sum(module.weight.data==0)/module.weight.numel())
     import pdb; pdb.set_trace()
-    torch.onnx.export(new_model, data, 'bert_coarse_sota_kernel.onnx', opset_version=10)
+    # torch.onnx.export(new_model, data, 'bert_coarse_sota_kernel.onnx', opset_version=10)
     mask = {}
     for name, module in new_model.named_modules():
         if isinstance(module, torch.nn.Linear):
             mask[name] = {}
-            mask[name]['weight'] = module.weight.data == 0
+            mask[name]['weight'] = module.weight.data != 0
     from SparGen.Common.Utils import  export_tesa
-    export_tesa(new_model, data, 'bert_coarse_sota_onnx_with_tesa', mask)
+    import pdb; pdb.set_trace()
+    export_tesa(new_model, data, 'bert_coarse_sota_onnx_with_tesa_test2', mask)
