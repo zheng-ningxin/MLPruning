@@ -176,22 +176,24 @@ def evaluate(model, tokenizer, prefix=""):
 
 from ModelVisual2 import ModelVisual
 def copy_tensor(t1, t2):
-    shape_list = list(t1.size())
+    shape_list = list(t2.size())
     index = []
     for _size in shape_list:
         index.append(slice(0, _size))
-    t1.data = t2.data[index]
+    t1.data[index] = t2.data
 
 def inherit_weight(model, ori_model):
     with torch.no_grad():
         for name, module in model.named_modules():
-            if hasattr(module, 'weight') and module.weight is not None:
+            if hasattr(module, 'weight') and module.weight is not None and isinstance(module, torch.nn.Linear):
                 print(type(module))
+                print(module.weight.size())
                 # if isinstance(module, (torch.nn.LayerNorm, torch.nn.GroupNorm)):
                 #     import pdb; pdb.set_trace()
                 _, ori_module = get_module_by_name(ori_model, name)
                 copy_tensor(module.weight, ori_module.weight)
                 # import pdb; pdb.set_trace()
+                print(module.weight.size())
                 if hasattr(module, 'bias') and module.bias is not None:
                     copy_tensor(module.bias, ori_module.bias)
 
@@ -200,8 +202,10 @@ if __name__ == '__main__':
     onnx_dir = 'bert_coarse_onnx'
     tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
     config = MaskedBertConfig.from_pretrained(model_name_or_path)
+    ori_config = copy.deepcopy(config)
     # import pdb; pdb.set_trace()
     norm_model = BertForSequenceClassification(config=config)
+    # import pdb; pdb.set_trace()
     dummy_input = torch.load('dummy_input.pth')
     # import pdb; pdb.set_trace()
     # mv = ModelVisual(norm_model.bert.encoder, torch.rand(32, 128, 768))
@@ -215,11 +219,17 @@ if __name__ == '__main__':
     norm_model.prune_heads(head_cfg)
     norm_model.load_state_dict(torch.load('nni_weight.pth', map_location=device))
     # print(evaluate(norm_model, tokenizer))
-    new_model = BertForSequenceClassification(config=config)
+    new_model = BertForSequenceClassification(config=ori_config)
     for name, module in new_model.named_modules():
         if isinstance(module, torch.nn.Linear):
             module.weight.data[:] = 0
+    import pdb; pdb.set_trace()
     inherit_weight(new_model, norm_model)
+    # manually revert the propagation gain
+    import pdb; pdb.set_trace()
+    for layerid in head_cfg:
+        pruned_head = len(head_cfg[layerid])
+        new_model.bert.encoder.layer[layerid]
     # import pdb; pdb.set_trace()
     for name, module in new_model.named_modules():
         if isinstance(module, torch.nn.Linear):
@@ -231,6 +241,7 @@ if __name__ == '__main__':
         if isinstance(module, torch.nn.Linear):
             mask[name] = {}
             mask[name]['weight'] = module.weight.data != 0
+    
     from SparGen.Common.Utils import  export_tesa
     import pdb; pdb.set_trace()
-    export_tesa(new_model, data, 'bert_coarse_sota_onnx_with_tesa_test2', mask)
+    export_tesa(new_model, data, 'bert_coarse_sota_onnx_with_tesa_no_propagation', mask)
